@@ -8,6 +8,7 @@ from collections import defaultdict
 from itertools import product
 from matplotlib.lines import Line2D
 from pycirclize import Circos
+import matplotlib.pyplot as plt
 
 from ktplotspy.plot import plot_cpdb
 from ktplotspy.utils.settings import DEFAULT_PAL, DEFAULT_PAL_CYCLER, DEFAULT_SEP
@@ -33,9 +34,9 @@ def plot_cpdb_chord(
     same_producer_colors: bool = False,
     link_colors: str | dict[str, str] | None = None,
     link_offset: float = 0,
+    legend_save_path: str | None = None,
     link_kwargs: dict = {"direction": 1, "allow_twist": True, "r1": 95, "r2": 90},
     legend_width: float = 2,
-    legend_kwargs: dict = {"loc": "center", "bbox_to_anchor": (1, 1), "fontsize": 8},
     **plot_cpdb_kwargs,
 ):
     """Plotting cellphonedb results as a chord diagram.
@@ -156,7 +157,8 @@ def plot_cpdb_chord(
         _interactions_subset = interactions_subset.loc[complex_id].copy()
         _interactions_subset_simp = interactions_subset.loc[simple_id].copy()
         complex_idx1 = [i for i, j in _interactions_subset.partner_b.items() if re.search("complex:", j)]
-        complex_idx2 = [i for i, j in _interactions_subset.partner_a.items() if re.search("complex:", j) and i not in complex_idx1]
+        complex_idx1_set = set(complex_idx1)
+        complex_idx2 = [i for i, j in _interactions_subset.partner_a.items() if re.search("complex:", j) and i not in complex_idx1_set]
         # complex_idx
         simple_1 = list(_interactions_subset.loc[complex_idx1, "interacting_pair"])
         simple_2 = list(_interactions_subset.loc[complex_idx2, "interacting_pair"])
@@ -403,10 +405,23 @@ def plot_cpdb_chord(
             sector_region1=(r.producer, r.start, r.end), sector_region2=(r.receiver, r.start_2, r.end_2), color=link_color, **link_kwargs
         )
     circos.plotfig()
-    # plot legend
+
     if isinstance(link_colors, dict):
         line_handles = [Line2D([], [], color=value, label=key, linewidth=legend_width) for key, value in link_colors.items()]
-        line_legend = circos.ax.legend(handles=line_handles, **legend_kwargs)
-        circos.ax.add_artist(line_legend)
+    
+        # Create and save standalone legend
+        legend_fig, legend_ax = plt.subplots(figsize=(5, 5)) # Adjust height depending on number of interactions
+        legend_ax.axis("off")
+
+        legend_ax.legend(
+            handles=line_handles, 
+            loc="center", 
+            fontsize=8, 
+            frameon=False 
+        )
+    
+        save_path = legend_save_path if legend_save_path is not None else plot_cpdb_kwargs.get("legend_save_path", "chord_legend_standalone.png")
+        legend_fig.savefig(save_path, dpi=300, bbox_inches="tight")
+        plt.close(legend_fig)
 
     return circos
